@@ -78,4 +78,63 @@ contract MockLendingOvervaluationTest is Test {
         // Under current recoverable-value accounting, the account is undercollateralized.
         assertTrue(lending.isUndercollateralizedUsingSafeValue(attacker));
     }
+
+    function test_severeSyImpairmentCanCreateBadDebtUnderUnsafeValuation() public {
+        uint256 syCollateral = 100e18;
+
+        // Step 1: SY exchangeRate rises from 1.00 to 1.10.
+        sy.setExchangeRate(1.10e18);
+        pyIndex.updatePyIndex();
+
+        assertEq(sy.exchangeRate(), 1.10e18);
+        assertEq(pyIndex.pyIndexStored(), 1.10e18);
+
+        // Step 2: severe SY impairment.
+        // Current recoverable backing falls to 0.60, but PY index remains floored at 1.10.
+        sy.setExchangeRate(0.60e18);
+
+        assertEq(sy.exchangeRate(), 0.60e18);
+        assertEq(pyIndex.pyIndexCurrent(), 1.10e18);
+
+        // Step 3: attacker deposits 100 SY-equivalent collateral.
+        vm.prank(attacker);
+        lending.depositCollateral(syCollateral);
+
+        // Unsafe valuation uses floored PY index:
+        // 100 * 1.10 = 110
+        uint256 unsafeCollateralValue = lending.unsafeCollateralValue(attacker);
+
+        // Safe/recoverable valuation uses current SY exchangeRate:
+        // 100 * 0.60 = 60
+        uint256 safeCollateralValue = lending.safeRecoverableCollateralValue(attacker);
+
+        assertEq(unsafeCollateralValue, 110e18);
+        assertEq(safeCollateralValue, 60e18);
+
+        // With 80% LTV:
+        // unsafe borrow limit = 110 * 80% = 88
+        // safe borrow limit   = 60  * 80% = 48
+        uint256 unsafeBorrowLimit = lending.unsafeBorrowLimit(attacker);
+        uint256 safeBorrowLimit = lending.safeBorrowLimit(attacker);
+
+        assertEq(unsafeBorrowLimit, 88e18);
+        assertEq(safeBorrowLimit, 48e18);
+        assertEq(unsafeBorrowLimit - safeBorrowLimit, 40e18);
+
+        // Step 4: attacker borrows up to the unsafe limit.
+        vm.prank(attacker);
+        lending.borrowUnsafe(unsafeBorrowLimit);
+
+        assertEq(lending.debtAmount(attacker), 88e18);
+
+        // This is stronger than just violating intended LTV:
+        // debt exceeds the current recoverable collateral value.
+        assertGt(lending.debtAmount(attacker), safeCollateralValue);
+
+        // Immediate bad-debt gap under recoverable-value accounting:
+        // debt 88 - collateral value 60 = 28
+        assertEq(lending.debtAmount(attacker) - safeCollateralValue, 28e18);
+
+        assertTrue(lending.isUndercollateralizedUsingSafeValue(attacker));
+    }
 }
