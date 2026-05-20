@@ -12,3 +12,10 @@ dependencies = [
     "pandas>=3.0.3",
     "requests>=2.34.2",
 ]
+
+[dependency-groups]
+dev = [
+    "matplotlib>=3.10.9",
+    "pandas>=3.0.3",
+    "web3>=7.16.0",
+]
