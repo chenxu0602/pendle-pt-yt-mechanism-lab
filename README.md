@@ -401,3 +401,21 @@ The integration hazard is different:
 The market-structure takeaway is also important:
 
 > Pendle PT/SY markets should be interpreted through implied yield, maturity, and backing quality, not as generic spot AMMs.
+
+
+## Local Dependency Setup
+
+This repo does not commit local `lib/` dependencies.
+
+For local development:
+
+```bash
+forge install foundry-rs/forge-std --no-commit
+
+git clone --depth 1 --branch v4.9.6 git@github.com:OpenZeppelin/openzeppelin-contracts.git lib/openzeppelin-contracts
+
+git clone --depth 1 --branch v4.9.6 git@github.com:OpenZeppelin/openzeppelin-contracts-upgradeable.git lib/openzeppelin-contracts-upgradeable
+
+ln -s /path/to/pendle/pendle-core-v2-public lib/pendle-core-v2-public
+ln -s /path/to/pendle/Pendle-SY-Public lib/Pendle-SY-Public
+```
