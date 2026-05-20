@@ -17,7 +17,7 @@ contract PyIndexFloorTest is Test {
         harness = new PyIndexHarness(address(sy));
     }
 
-    function test_initialPyIndexEqualsInitialSyExchangeRate() public {
+    function test_initialPyIndexEqualsInitialSyExchangeRate() public view {
         assertEq(sy.exchangeRate(), ONE);
         assertEq(harness.pyIndexStored(), ONE);
         assertEq(harness.pyIndexCurrent(), ONE);

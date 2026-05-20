@@ -225,7 +225,7 @@ Work in progress.
 Initial focus:
 
 ```
-PY index floor under impaired SY exchange rate.
+The PY index floor is not treated as a vulnerability by itself. It is a deliberate accounting design that preserves monotonic yield accounting. The lab studies how this design behaves when current SY backing falls below the stored PY index, and what assumptions external integrators must not violate.
 ```
 
 Future work:
@@ -246,3 +246,158 @@ This lab is part of a broader series of executable DeFi mechanism studies:
 - ERC4626 inflation / donation case study;
 - RWA redemption accounting case study;
 - Pendle PT/YT mechanism lab.
+
+## Current Results
+
+The current lab contains three executable experiments.
+
+### 1. PY Index Floor
+
+`test/PyIndexFloor.t.sol`
+
+This test shows that the PY index follows SY exchange-rate increases but does not decrease when the current SY exchange rate falls below the stored index.
+
+```
+SY exchangeRate: 1.00 → 1.10 → 0.95
+PY index:        1.00 → 1.10 → 1.10
+```
+
+For `100 SY`:
+
+```
+recoverable backing at current SY exchangeRate = 95
+PY accounting amount using floored index       = 110
+```
+
+### 2. Unsafe Oracle Consumer Overvaluation
+
+`test/OracleConsumerOvervaluation.t.sol`
+
+This test shows that an unsafe external consumer can overvalue collateral if it uses the floored PY index as current recoverable value.
+
+```
+unsafe value using PY index             = 110
+recoverable value using current SY rate = 95
+overvaluation                           = 15
+```
+
+### 3. Mock Lending Over-Borrow
+
+`test/MockLendingOvervaluation.t.sol`
+
+This test extends the unsafe valuation into a toy lending protocol.
+
+At 80% LTV:
+
+```
+unsafe borrow limit = 88
+safe borrow limit   = 76
+excess borrow       = 12
+```
+
+The borrower can borrow up to the unsafe limit and become undercollateralized when valued using current recoverable SY backing.
+
+## Main Takeaway
+
+The PY index floor is not treated as a vulnerability by itself. It is a monotonic accounting design.
+
+The integration hazard is different:
+
+> An external protocol can become unsafe if it treats a floored accounting index as current recoverable collateral value during SY impairment.
+
+## Current Results
+
+The current lab contains four executable experiment groups.
+
+### 1. PY Index Floor
+
+`test/PyIndexFloor.t.sol`
+
+This test shows that the PY index follows SY exchange-rate increases but does not decrease when the current SY exchange rate falls below the stored index.
+
+```
+SY exchangeRate: 1.00 → 1.10 → 0.95
+PY index:        1.00 → 1.10 → 1.10
+```
+
+For `100 SY`:
+
+```
+recoverable backing at current SY exchangeRate = 95
+PY accounting amount using floored index       = 110
+```
+
+### 2. Unsafe Oracle Consumer Overvaluation
+
+`test/OracleConsumerOvervaluation.t.sol`
+
+This test shows that an unsafe external consumer can overvalue collateral if it treats the floored PY index as current recoverable value.
+
+```
+unsafe value using PY index             = 110
+recoverable value using current SY rate = 95
+overvaluation                           = 15
+```
+
+### 3. Mock Lending Over-Borrow and Bad Debt
+
+`test/MockLendingOvervaluation.t.sol`
+
+This test extends unsafe valuation into a toy lending protocol.
+
+Mild impairment case:
+
+```
+current SY exchangeRate = 0.95
+PY index                = 1.10
+unsafe collateral value = 110
+recoverable value       = 95
+
+80% LTV:
+unsafe borrow limit = 88
+safe borrow limit   = 76
+excess borrow       = 12
+```
+
+This violates the intended safe LTV but does not create immediate bad debt because debt remains below recoverable collateral value.
+
+Severe impairment case:
+
+```
+current SY exchangeRate = 0.60
+PY index                = 1.10
+unsafe collateral value = 110
+recoverable value       = 60
+
+80% LTV:
+unsafe borrow limit = 88
+safe borrow limit   = 48
+bad-debt gap        = 28
+```
+
+This demonstrates direct bad-debt potential when unsafe accounting-index valuation exceeds current recoverable collateral value by enough.
+
+### 4. PT/SY Market Boundary
+
+`test/MarketBoundary.t.sol`
+
+This test uses a simplified implied-rate AMM harness.
+
+It shows:
+
+- buying PT reduces pool PT, raises PT price, and lowers implied APY;
+- selling PT increases pool PT, lowers PT price, and raises implied APY;
+- large trades move price more than small trades;
+- near-expiry annualized implied APY is more sensitive to the same exchange-rate deviation.
+
+## Main Takeaway
+
+The PY index floor is not treated as a vulnerability by itself. It is a monotonic accounting design.
+
+The integration hazard is different:
+
+> An external protocol can become unsafe if it treats a floored accounting index as current recoverable collateral value during SY impairment.
+
+The market-structure takeaway is also important:
+
+> Pendle PT/SY markets should be interpreted through implied yield, maturity, and backing quality, not as generic spot AMMs.
